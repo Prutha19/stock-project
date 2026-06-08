@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import json
 from typing import Dict, Optional, Union
 from urllib.error import HTTPError, URLError
@@ -5,6 +6,31 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 YAHOO_HEADERS = {"User-Agent": "Mozilla/5.0"}
+TOP_STOCK_UNIVERSE = [
+    ("RELIANCE.NS", "Reliance Industries"),
+    ("TCS.NS", "Tata Consultancy Services"),
+    ("HDFCBANK.NS", "HDFC Bank"),
+    ("ICICIBANK.NS", "ICICI Bank"),
+    ("BHARTIARTL.NS", "Bharti Airtel"),
+    ("INFY.NS", "Infosys"),
+    ("SBIN.NS", "State Bank of India"),
+    ("LT.NS", "Larsen & Toubro"),
+    ("ITC.NS", "ITC"),
+    ("HINDUNILVR.NS", "Hindustan Unilever"),
+    ("AXISBANK.NS", "Axis Bank"),
+    ("KOTAKBANK.NS", "Kotak Mahindra Bank"),
+    ("BAJFINANCE.NS", "Bajaj Finance"),
+    ("ASIANPAINT.NS", "Asian Paints"),
+    ("MARUTI.NS", "Maruti Suzuki"),
+    ("SUNPHARMA.NS", "Sun Pharmaceutical"),
+    ("TITAN.NS", "Titan Company"),
+    ("NTPC.NS", "NTPC"),
+    ("POWERGRID.NS", "Power Grid Corporation"),
+    ("TATAMOTORS.NS", "Tata Motors"),
+]
+TOP_STOCK_NAME_MAP = {
+    symbol: name for symbol, name in TOP_STOCK_UNIVERSE
+}
 
 
 def _fetch_json(
@@ -49,7 +75,93 @@ def get_stock_price(symbol: str):
         return None
 
 
+def _get_top_stock_snapshot(stock: tuple[str, str]):
+    symbol, fallback_name = stock
+
+    try:
+        data = _fetch_json(
+            f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}",
+            {"interval": "1d", "range": "5d"},
+        )
+
+        results = data.get("chart", {}).get("result") or []
+        if not results:
+            return None
+
+        result = results[0]
+        meta = result.get("meta", {})
+        closes = (
+            result.get("indicators", {})
+            .get("quote", [{}])[0]
+            .get("close", [])
+        )
+
+        latest_close = next(
+            (value for value in reversed(closes) if value is not None),
+            meta.get("regularMarketPrice"),
+        )
+
+        if latest_close is None:
+            latest_close = meta.get("regularMarketPrice")
+
+        if latest_close is None:
+            return None
+
+        previous_close = meta.get("chartPreviousClose")
+
+        if previous_close is None:
+            non_null_closes = [value for value in closes if value is not None]
+            if len(non_null_closes) > 1:
+                previous_close = non_null_closes[-2]
+
+        if previous_close in (None, 0):
+            return None
+
+        change = float(latest_close) - float(previous_close)
+        change_percent = (change / float(previous_close)) * 100
+
+        return {
+            "symbol": symbol,
+            "display_symbol": symbol.replace(".NS", ""),
+            "name": (
+                meta.get("shortName")
+                or meta.get("longName")
+                or TOP_STOCK_NAME_MAP.get(symbol)
+                or fallback_name
+            ),
+            "price": round(float(latest_close), 2),
+            "change": round(change, 2),
+            "change_percent": round(change_percent, 2),
+        }
+
+    except (HTTPError, URLError, TimeoutError, ValueError, TypeError, json.JSONDecodeError):
+        return None
+
+
+def get_top_stocks(limit: int = 10):
+    with ThreadPoolExecutor(
+        max_workers=min(8, len(TOP_STOCK_UNIVERSE))
+    ) as executor:
+        results = [
+            stock
+            for stock in executor.map(
+                _get_top_stock_snapshot,
+                TOP_STOCK_UNIVERSE,
+            )
+            if stock
+        ]
+
+    results.sort(
+        key=lambda stock: stock["change_percent"],
+        reverse=True,
+    )
+
+    return results[: max(limit, 0)]
+
+
 def search_stocks(query: str):
+    query = query.strip()
+
     if not query:
         return []
 
