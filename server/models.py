@@ -44,3 +44,11 @@ class Transaction(Base):
     price = Column(Float)
     type = Column(String)  # "buy" or "sell"
     timestamp = Column(DateTime, default=datetime.utcnow)
+
+
+class Watchlist(Base):
+    __tablename__ = "watchlist"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer)
+    symbol = Column(String)

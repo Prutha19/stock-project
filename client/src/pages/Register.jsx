@@ -1,23 +1,46 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
+import { buildApiUrl } from "../services/api";
 
 function Register() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
   const handleRegister = async () => {
+    const normalizedUsername = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedUsername || !normalizedEmail || !password.trim()) {
+      toast.error("Please fill all fields");
+      return;
+    }
+
+    if (normalizedUsername.length < 3) {
+      toast.error("Username must be at least 3 characters");
+      return;
+    }
+
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
     try {
-      const response = await fetch("http://127.0.0.1:8000/register", {
+      setLoading(true);
+
+      const response = await fetch(buildApiUrl("/register"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          username,
-          email,
+          username: normalizedUsername,
+          email: normalizedEmail,
           password
         })
       });
@@ -25,17 +48,21 @@ function Register() {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.detail || "Registration failed");
+        toast.error(data.detail || "Registration failed");
         return;
       }
 
-      alert("Registration successful");
+      toast.success("Registration successful");
 
       navigate("/login");
 
     } catch (error) {
       console.error(error);
-      alert("Server error");
+
+      toast.error("Server error");
+
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -78,9 +105,14 @@ function Register() {
 
         <button
           onClick={handleRegister}
-          className="w-full py-3 rounded-lg bg-green-500 text-black font-semibold hover:bg-green-400 transition"
+          disabled={loading}
+          className={`w-full py-3 rounded-lg font-semibold transition ${
+            loading
+              ? "bg-gray-700 text-gray-300 cursor-not-allowed"
+              : "bg-green-500 text-black hover:bg-green-400"
+          }`}
         >
-          Register
+          {loading ? "Creating Account..." : "Register"}
         </button>
 
         <p className="text-gray-400 text-sm text-center mt-5">

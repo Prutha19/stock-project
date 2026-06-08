@@ -65,16 +65,8 @@ If needed, copy `client/.env.example` and point `VITE_API_BASE_URL` to your back
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
-- `GET /api/auth/me`
-- `GET /api/market/stocks`
-- `GET /api/market/stocks/{symbol}`
-- `GET /api/market/stocks/{symbol}/history`
-- `GET /api/market/overview`
-- `POST /api/market/refresh`
 - `GET /api/portfolio`
-- `GET /api/portfolio/performance`
-- `POST /api/trades`
-- `GET /api/transactions`
+- `GET /api/dashboard`
 
 ## Example Register Payload
 

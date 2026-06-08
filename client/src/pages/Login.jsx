@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
+import { buildApiUrl, setAuthToken } from "../services/api";
 
 function Login() {
   const [email, setEmail] = useState("");
@@ -10,7 +11,9 @@ function Login() {
   const navigate = useNavigate();
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password.trim()) {
       toast.error("Please fill all fields");
       return;
     }
@@ -18,13 +21,13 @@ function Login() {
     try {
       setLoading(true);
 
-      const response = await fetch("http://127.0.0.1:8000/login", {
+      const response = await fetch(buildApiUrl("/login"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          email,
+          email: normalizedEmail,
           password
         })
       });
@@ -36,7 +39,7 @@ function Login() {
         return;
       }
 
-      localStorage.setItem("token", data.access_token);
+      setAuthToken(data.access_token);
 
       toast.success("Login successful");
 

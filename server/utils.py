@@ -10,4 +10,5 @@ def hash_password(password: str):
 
 
 def verify_password(plain_password, hashed_password):
+    plain_password = plain_password[:72]
     return pwd_context.verify(plain_password, hashed_password)
